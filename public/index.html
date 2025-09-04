@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jira Gamification Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Jira Gamification Dashboard</h1>
+            <p class="subtitle">Track your Jira achievements and progress</p>
+        </header>
+
+        <div class="search-section">
+            <div class="search-container">
+                <input type="text" id="usernameInput" placeholder="Enter Jira username (e.g., john.doe)" />
+                <button id="searchBtn" onclick="searchUser()">Search User</button>
+            </div>
+            <div id="searchSuggestions" class="suggestions"></div>
+        </div>
+
+        <div id="loadingIndicator" class="loading hidden">Loading...</div>
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <div id="userStats" class="stats-container hidden">
+            <h2 class="section-title">User Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTickets">0</div>
+                    <div class="stat-label">Total Tickets</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="openTickets">0</div>
+                    <div class="stat-label">Open Tickets</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="closedTickets">0</div>
+                    <div class="stat-label">Closed Tickets</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="completionRate">0%</div>
+                    <div class="stat-label">Completion Rate</div>
+                </div>
+            </div>
+
+            <div class="gamification-section">
+                <h3>Achievements</h3>
+                <div class="achievements" id="achievements"></div>
+            </div>
+
+            <div class="additional-stats">
+                <div class="stat-breakdown">
+                    <h3>Tickets by Priority</h3>
+                    <div id="priorityBreakdown" class="breakdown-list"></div>
+                </div>
+                <div class="stat-breakdown">
+                    <h3>Tickets by Type</h3>
+                    <div id="typeBreakdown" class="breakdown-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ticketsContainer" class="tickets-container hidden">
+            <div class="tickets-section">
+                <h2 class="section-title">Current Tickets (<span id="currentCount">0</span>)</h2>
+                <div id="currentTickets" class="tickets-grid"></div>
+            </div>
+
+            <div class="tickets-section">
+                <h2 class="section-title">Closed Tickets (<span id="closedCount">0</span>)</h2>
+                <div id="closedTicketsList" class="tickets-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
