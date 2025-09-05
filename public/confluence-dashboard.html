@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Confluence Gamification Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Confluence Gamification Dashboard</h1>
+            <p class="subtitle">Track your Confluence contributions and progress</p>
+        </header>
+
+        <div class="nav-buttons">
+            <a href="homepage.html" class="btn-home">← Back to Home</a>
+        </div>
+
+        <div id="loadingIndicator" class="loading">Loading user content...</div>
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <div id="userStats" class="stats-container hidden">
+            <h2 class="section-title">User Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalContent">0</div>
+                    <div class="stat-label">Total Content</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalPages">0</div>
+                    <div class="stat-label">Pages</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalBlogPosts">0</div>
+                    <div class="stat-label">Blog Posts</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="recentUpdates">0</div>
+                    <div class="stat-label">Recent Updates (30d)</div>
+                </div>
+            </div>
+
+            <div class="gamification-section">
+                <h3>Achievements</h3>
+                <div class="achievements" id="achievements"></div>
+            </div>
+
+            <div class="additional-stats">
+                <div class="stat-breakdown">
+                    <h3>Content by Space</h3>
+                    <div id="spaceBreakdown" class="breakdown-list"></div>
+                </div>
+                <div class="stat-breakdown">
+                    <h3>Content by Type</h3>
+                    <div id="typeBreakdown" class="breakdown-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="contentContainer" class="tickets-container hidden">
+            <div class="tickets-section">
+                <h2 class="section-title">Pages (<span id="pagesCount">0</span>)</h2>
+                <div id="pagesList" class="tickets-grid"></div>
+            </div>
+
+            <div class="tickets-section">
+                <h2 class="section-title">Blog Posts (<span id="blogPostsCount">0</span>)</h2>
+                <div id="blogPostsList" class="tickets-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="confluence-script.js"></script>
+</body>
+</html>
