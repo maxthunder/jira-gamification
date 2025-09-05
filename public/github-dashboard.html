@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Gamification Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="access-guard.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GitHub Gamification Dashboard</h1>
+            <p class="subtitle">Track your GitHub contributions and development progress</p>
+        </header>
+
+        <div class="nav-buttons">
+            <a href="homepage.html" class="btn-home">← Back to Home</a>
+        </div>
+
+        <div id="loadingIndicator" class="loading">Loading GitHub data...</div>
+        <div id="errorMessage" class="error-message hidden"></div>
+
+        <div id="userStats" class="stats-container hidden">
+            <h2 class="section-title">Developer Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalPRs">0</div>
+                    <div class="stat-label">Pull Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="mergedPRs">0</div>
+                    <div class="stat-label">Merged PRs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalReviews">0</div>
+                    <div class="stat-label">Reviews</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalCommits">0</div>
+                    <div class="stat-label">Recent Commits (30d)</div>
+                </div>
+            </div>
+
+            <div class="gamification-section">
+                <h3>Achievements</h3>
+                <div class="achievements" id="achievements"></div>
+            </div>
+
+            <div class="additional-stats">
+                <div class="stat-breakdown">
+                    <h3>Pull Request Stats</h3>
+                    <div class="breakdown-list">
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Open PRs</span>
+                            <span class="breakdown-value" id="openPRs">0</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Merge Rate</span>
+                            <span class="breakdown-value" id="mergeRate">0%</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Recent PRs (30d)</span>
+                            <span class="breakdown-value" id="recentPRs">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-breakdown">
+                    <h3>Review Stats</h3>
+                    <div class="breakdown-list">
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Approved</span>
+                            <span class="breakdown-value" id="approvedReviews">0</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Changes Requested</span>
+                            <span class="breakdown-value" id="changesRequested">0</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Recent Reviews (30d)</span>
+                            <span class="breakdown-value" id="recentReviews">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stat-breakdown">
+                    <h3>Code Impact</h3>
+                    <div class="breakdown-list">
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Lines Added</span>
+                            <span class="breakdown-value" id="linesAdded">0</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Lines Removed</span>
+                            <span class="breakdown-value" id="linesRemoved">0</span>
+                        </div>
+                        <div class="breakdown-item">
+                            <span class="breakdown-label">Net Lines</span>
+                            <span class="breakdown-value" id="netLines">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="additional-stats">
+                <div class="stat-breakdown">
+                    <h3>Repository Activity</h3>
+                    <div id="repoBreakdown" class="breakdown-list"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="contentContainer" class="tickets-container hidden">
+            <div class="tickets-section">
+                <h2 class="section-title">Recent Pull Requests (<span id="prCount">0</span>)</h2>
+                <div id="pullRequestsList" class="tickets-grid"></div>
+            </div>
+
+            <div class="tickets-section">
+                <h2 class="section-title">Recent Reviews (<span id="reviewCount">0</span>)</h2>
+                <div id="reviewsList" class="tickets-grid"></div>
+            </div>
+
+            <div class="tickets-section">
+                <h2 class="section-title">Recent Commits (<span id="commitCount">0</span>)</h2>
+                <div id="commitsList" class="tickets-grid"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="github-script.js"></script>
+</body>
+</html>
