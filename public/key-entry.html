@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Access Key - Gamification Station</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .access-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            padding: 40px;
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        .logo {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 30px;
+            font-size: 0.95rem;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input[type="password"] {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+            outline: none;
+        }
+
+        input[type="password"]:focus {
+            border-color: #3197e0;
+        }
+
+        .submit-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #3197e0 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(49, 151, 224, 0.3);
+        }
+
+        .submit-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .error-message {
+            background: #e74c3c;
+            color: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-top: 16px;
+            font-size: 0.9rem;
+            display: none;
+        }
+
+        .loading {
+            opacity: 0.7;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .shake {
+            animation: shake 0.5s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div class="access-container">
+        <div class="logo">🎮</div>
+        <h1>Gamification Station</h1>
+        <p class="subtitle">Enter your access key to continue</p>
+        
+        <form id="accessForm">
+            <div class="form-group">
+                <label for="accessKey">Access Key</label>
+                <input type="password" id="accessKey" name="accessKey" required autocomplete="off">
+            </div>
+            <button type="submit" class="submit-btn" id="submitBtn">Enter</button>
+        </form>
+
+        <div class="error-message" id="errorMessage">
+            Invalid access key. Please try again.
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('accessForm');
+        const accessKeyInput = document.getElementById('accessKey');
+        const submitBtn = document.getElementById('submitBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const container = document.querySelector('.access-container');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const accessKey = accessKeyInput.value.trim();
+            if (!accessKey) return;
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Verifying...';
+            container.classList.add('loading');
+            errorMessage.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/validate-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ accessKey })
+                });
+
+                if (response.ok) {
+                    // Store the key in sessionStorage
+                    sessionStorage.setItem('accessKey', accessKey);
+                    
+                    // Redirect to homepage
+                    window.location.href = '/homepage.html';
+                } else {
+                    // Show error
+                    errorMessage.style.display = 'block';
+                    container.classList.add('shake');
+                    accessKeyInput.focus();
+                    accessKeyInput.select();
+                    
+                    // Remove shake animation
+                    setTimeout(() => {
+                        container.classList.remove('shake');
+                    }, 500);
+                }
+            } catch (error) {
+                errorMessage.textContent = 'Connection error. Please try again.';
+                errorMessage.style.display = 'block';
+                container.classList.add('shake');
+                
+                setTimeout(() => {
+                    container.classList.remove('shake');
+                }, 500);
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Enter';
+                container.classList.remove('loading');
+            }
+        });
+
+        // Focus on the input field when page loads
+        window.addEventListener('load', () => {
+            accessKeyInput.focus();
+        });
+
+        // Check if user already has valid access
+        window.addEventListener('load', async () => {
+            const storedKey = sessionStorage.getItem('accessKey');
+            if (storedKey) {
+                try {
+                    const response = await fetch('/api/validate-key', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ accessKey: storedKey })
+                    });
+
+                    if (response.ok) {
+                        window.location.href = '/homepage.html';
+                    }
+                } catch (error) {
+                    // If validation fails, clear the stored key
+                    sessionStorage.removeItem('accessKey');
+                }
+            }
+        });
+    </script>
+</body>
+</html>
