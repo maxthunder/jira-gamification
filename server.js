@@ -3,9 +3,32 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-const jiraRoutes = require('./routes/jira');
-const confluenceRoutes = require('./routes/confluence');
-const githubRoutes = require('./routes/github');
+// Load routes with error handling
+let jiraRoutes, confluenceRoutes, githubRoutes;
+
+try {
+    jiraRoutes = require('./routes/jira');
+    console.log('✓ Jira routes loaded successfully');
+} catch (error) {
+    console.error('✗ Failed to load Jira routes:', error.message);
+    process.exit(1);
+}
+
+try {
+    confluenceRoutes = require('./routes/confluence');
+    console.log('✓ Confluence routes loaded successfully');
+} catch (error) {
+    console.error('✗ Failed to load Confluence routes:', error.message);
+    process.exit(1);
+}
+
+try {
+    githubRoutes = require('./routes/github');
+    console.log('✓ GitHub routes loaded successfully');
+} catch (error) {
+    console.error('✗ Failed to load GitHub routes:', error.message);
+    process.exit(1);
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,6 +58,15 @@ app.post('/api/validate-key', (req, res) => {
 app.use('/api/jira', jiraRoutes);
 app.use('/api/confluence', confluenceRoutes);
 app.use('/api/github', githubRoutes);
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+    res.json({ 
+        status: 'OK', 
+        message: 'Server is running',
+        timestamp: new Date().toISOString()
+    });
+});
 
 // Serve the key entry page as default
 app.get('/', (req, res) => {
