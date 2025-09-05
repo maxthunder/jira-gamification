@@ -16,9 +16,14 @@ app.use(express.static('public'));
 // API Routes
 app.use('/api/jira', jiraRoutes);
 
-// Serve the main page
+// Serve the homepage
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'homepage.html'));
+});
+
+// Serve the Jira dashboard
+app.get('/jira-dashboard', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'jira-dashboard.html'));
 });
 
 // Start server
