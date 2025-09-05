@@ -2,15 +2,20 @@ let jiraBaseUrl = null;
 let defaultUser = null;
 let currentUsername = null;
 
-// Detect force reload (Ctrl+F5, Cmd+Shift+R, etc.)
+// Detect hard reload (Ctrl+F5, Ctrl+Shift+R, etc.) - only on initial page load
 function isHardReload() {
-    // Check various indicators of a hard reload
+    // Check if this is a hard reload by examining browser behavior
     const navigation = performance.getEntriesByType('navigation')[0];
-    return navigation && (
-        navigation.type === 'reload' ||
-        // Additional checks for hard reload
-        (performance.navigation && performance.navigation.type === 1)
-    );
+    if (!navigation) return false;
+    
+    // Check for reload type and cache control headers
+    const isReload = navigation.type === 'reload';
+    const hasNoCacheHeader = document.cookie.includes('no-cache') || 
+                            window.location.search.includes('no-cache');
+    
+    // Only consider it a hard reload if it's an actual browser hard refresh
+    // (not our programmatic refreshes)
+    return isReload && (hasNoCacheHeader || navigation.loadEventEnd - navigation.loadEventStart < 100);
 }
 
 // Fetch configuration and auto-load user data on page load
@@ -297,7 +302,7 @@ function addRefreshButton() {
     if (!document.getElementById('refreshButton')) {
         const refreshButton = document.createElement('button');
         refreshButton.id = 'refreshButton';
-        refreshButton.textContent = '🔄 Refresh Data';
+        refreshButton.textContent = '🔄 Refresh';
         refreshButton.style.cssText = `
             position: fixed;
             top: 60px;
@@ -314,20 +319,54 @@ function addRefreshButton() {
         
         refreshButton.onclick = () => {
             if (currentUsername) {
-                loadUserData(currentUsername, true);
+                loadUserData(currentUsername, false); // Use cache when possible
             }
         };
         
         document.body.appendChild(refreshButton);
     }
+    
+    // Add force refresh button
+    if (!document.getElementById('forceRefreshButton')) {
+        const forceRefreshButton = document.createElement('button');
+        forceRefreshButton.id = 'forceRefreshButton';
+        forceRefreshButton.textContent = '⚡ Force Refresh';
+        forceRefreshButton.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #F44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+        `;
+        
+        forceRefreshButton.onclick = () => {
+            if (currentUsername) {
+                loadUserData(currentUsername, true); // Always bypass cache
+            }
+        };
+        
+        document.body.appendChild(forceRefreshButton);
+    }
 }
 
-// Add keyboard shortcut for refresh (Ctrl+R or Cmd+R)
+// Add keyboard shortcuts for refresh
 document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
         e.preventDefault();
         if (currentUsername) {
-            loadUserData(currentUsername, true);
+            if (e.shiftKey) {
+                // Ctrl+Shift+R or Cmd+Shift+R = Force refresh (bypass cache)
+                loadUserData(currentUsername, true);
+            } else {
+                // Ctrl+R or Cmd+R = Regular refresh (use cache when possible)
+                loadUserData(currentUsername, false);
+            }
         }
     }
 });

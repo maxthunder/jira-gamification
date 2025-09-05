@@ -116,20 +116,32 @@ window.addEventListener('beforeunload', (e) => {
     // This will be handled by the reload detection in the main scripts
 });
 
-// Detect hard reload and clear cache
+// Detect hard reload and clear cache (only on initial page load)
 (function() {
     const navigation = performance.getEntriesByType('navigation')[0];
     if (navigation && navigation.type === 'reload') {
-        // Check if it was a hard reload by looking at the cache control
+        // More sophisticated hard reload detection
         const now = Date.now();
-        const lastReload = parseInt(localStorage.getItem('lastHardReload') || '0');
+        const lastInteraction = parseInt(sessionStorage.getItem('lastUserInteraction') || '0');
+        const timeSinceLastInteraction = now - lastInteraction;
         
-        // If reload happened within 1 second and cache was recently cleared, assume hard reload
-        if (now - lastReload < 1000) {
+        // Only clear cache if:
+        // 1. It's been more than 2 seconds since last user interaction (likely a browser refresh)
+        // 2. OR if there are cache-control headers suggesting hard refresh
+        const isLikelyHardReload = timeSinceLastInteraction > 2000 || 
+                                  document.cookie.includes('no-cache') ||
+                                  window.location.search.includes('force');
+        
+        if (isLikelyHardReload) {
             console.log('Hard reload detected, clearing cache');
-            window.clientCache.clear();
+            localStorage.removeItem('cache:jira:user_tickets:' + (new URLSearchParams(window.location.search).get('user') || ''));
         }
-        
-        localStorage.setItem('lastHardReload', now.toString());
     }
 })();
+
+// Track user interactions to help distinguish between programmatic and user-initiated reloads
+['click', 'keydown', 'touchstart'].forEach(eventType => {
+    document.addEventListener(eventType, () => {
+        sessionStorage.setItem('lastUserInteraction', Date.now().toString());
+    });
+});
