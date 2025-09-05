@@ -1,4 +1,5 @@
 const axios = require('axios');
+const cacheService = require('./cacheService');
 
 class JiraService {
     constructor() {
@@ -24,8 +25,21 @@ class JiraService {
         });
     }
 
-    async getUserTickets(username) {
+    async getUserTickets(username, useCache = true) {
+        const cacheKey = cacheService.generateKey('jira', 'user_tickets', username);
+        
+        // Check cache first
+        if (useCache) {
+            const cachedData = cacheService.get(cacheKey);
+            if (cachedData) {
+                console.log(`Cache hit for user tickets: ${username}`);
+                return cachedData;
+            }
+        }
+
         try {
+            console.log(`Fetching fresh data for user tickets: ${username}`);
+            
             // Search for all tickets assigned to the user
             const jql = `assignee = "${username}" ORDER BY created DESC`;
             
@@ -48,11 +62,16 @@ class JiraService {
                 ticket.fields.status.statusCategory.key === 'done'
             );
 
-            return {
+            const result = {
                 current: this.formatTickets(currentTickets),
                 closed: this.formatTickets(closedTickets),
                 stats: this.calculateStats(tickets)
             };
+
+            // Cache the result
+            cacheService.set(cacheKey, result);
+            
+            return result;
         } catch (error) {
             console.error('Error fetching Jira tickets:', error.response?.data || error.message);
             throw new Error(`Failed to fetch tickets: ${error.response?.data?.errorMessages?.[0] || error.message}`);
@@ -121,8 +140,21 @@ class JiraService {
         };
     }
 
-    async searchUsers(query) {
+    async searchUsers(query, useCache = true) {
+        const cacheKey = cacheService.generateKey('jira', 'search_users', query);
+        
+        // Check cache first
+        if (useCache) {
+            const cachedData = cacheService.get(cacheKey);
+            if (cachedData) {
+                console.log(`Cache hit for user search: ${query}`);
+                return cachedData;
+            }
+        }
+
         try {
+            console.log(`Fetching fresh data for user search: ${query}`);
+            
             const response = await this.client.get('/rest/api/2/user/search', {
                 params: {
                     query: query,
@@ -130,12 +162,17 @@ class JiraService {
                 }
             });
             
-            return response.data.map(user => ({
+            const result = response.data.map(user => ({
                 name: user.name,
                 displayName: user.displayName,
                 email: user.emailAddress,
                 avatar: user.avatarUrls?.['48x48']
             }));
+
+            // Cache the result (shorter TTL for search results)
+            cacheService.set(cacheKey, result, 2 * 60 * 1000); // 2 minutes
+            
+            return result;
         } catch (error) {
             console.error('Error searching users:', error.response?.data || error.message);
             throw new Error(`Failed to search users: ${error.response?.data?.errorMessages?.[0] || error.message}`);

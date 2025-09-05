@@ -1,10 +1,28 @@
 let jiraBaseUrl = null;
 let defaultUser = null;
+let currentUsername = null;
+
+// Detect force reload (Ctrl+F5, Cmd+Shift+R, etc.)
+function isHardReload() {
+    // Check various indicators of a hard reload
+    const navigation = performance.getEntriesByType('navigation')[0];
+    return navigation && (
+        navigation.type === 'reload' ||
+        // Additional checks for hard reload
+        (performance.navigation && performance.navigation.type === 1)
+    );
+}
 
 // Fetch configuration and auto-load user data on page load
 async function initializeDashboard() {
     try {
-        // Fetch configuration
+        // Clear cache on hard reload
+        if (isHardReload()) {
+            console.log('Hard reload detected, clearing client cache');
+            window.clientCache.clear();
+        }
+
+        // Fetch configuration (always fresh, it's lightweight)
         const configResponse = await fetch('/api/jira/config');
         const config = await configResponse.json();
         jiraBaseUrl = config.jiraBaseUrl;
@@ -27,13 +45,36 @@ async function initializeDashboard() {
 // Initialize dashboard on page load
 window.addEventListener('DOMContentLoaded', initializeDashboard);
 
-async function loadUserData(username) {
+async function loadUserData(username, forceRefresh = false) {
+    currentUsername = username;
     hideError();
-    showLoading(true);
     hideResults();
 
+    const cacheKey = window.clientCache.generateKey('jira', 'user_tickets', username);
+    
+    // Try to get cached data first
+    if (!forceRefresh) {
+        const cachedData = window.clientCache.get(cacheKey);
+        if (cachedData) {
+            console.log('Using cached data for user:', username);
+            displayResults(cachedData);
+            calculateAchievements(cachedData.stats);
+            document.querySelector('.section-title').textContent = `User Statistics - ${username}`;
+            showCacheInfo(cacheKey, true);
+            return;
+        }
+    }
+
+    // Show loading and fetch fresh data
+    showLoading(true);
+    showCacheInfo(cacheKey, false);
+
     try {
-        const response = await fetch(`/api/jira/user/${encodeURIComponent(username)}/tickets`);
+        const url = forceRefresh ? 
+            `/api/jira/user/${encodeURIComponent(username)}/tickets?force=1` :
+            `/api/jira/user/${encodeURIComponent(username)}/tickets`;
+            
+        const response = await fetch(url);
         
         if (!response.ok) {
             const error = await response.json();
@@ -41,11 +82,17 @@ async function loadUserData(username) {
         }
 
         const data = await response.json();
+        
+        // Cache the fresh data
+        window.clientCache.set(cacheKey, data);
+        
         displayResults(data);
         calculateAchievements(data.stats);
         
         // Update page title with username
         document.querySelector('.section-title').textContent = `User Statistics - ${username}`;
+        
+        console.log('Fetched and cached fresh data for user:', username);
     } catch (error) {
         showError(error.message);
     } finally {
@@ -192,4 +239,101 @@ function hideResults() {
     document.getElementById('userStats').classList.add('hidden');
     document.getElementById('ticketsContainer').classList.add('hidden');
 }
+
+function showCacheInfo(cacheKey, fromCache) {
+    // Add cache status to page
+    let cacheStatus = document.getElementById('cacheStatus');
+    if (!cacheStatus) {
+        cacheStatus = document.createElement('div');
+        cacheStatus.id = 'cacheStatus';
+        cacheStatus.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: ${fromCache ? '#4CAF50' : '#2196F3'};
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0.8;
+        `;
+        document.body.appendChild(cacheStatus);
+    }
+    
+    if (fromCache) {
+        const cacheInfo = window.clientCache.getCacheInfo(cacheKey);
+        const age = cacheInfo ? Math.round(cacheInfo.age / 1000) : 0;
+        cacheStatus.textContent = `📦 Cached (${age}s ago)`;
+        cacheStatus.style.background = '#4CAF50';
+    } else {
+        cacheStatus.textContent = '🔄 Fetching fresh data...';
+        cacheStatus.style.background = '#2196F3';
+        
+        // Hide after fetch completes
+        setTimeout(() => {
+            if (cacheStatus.textContent.includes('Fetching')) {
+                cacheStatus.textContent = '✅ Fresh data loaded';
+                cacheStatus.style.background = '#4CAF50';
+            }
+        }, 1000);
+    }
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => {
+        if (cacheStatus && document.body.contains(cacheStatus)) {
+            cacheStatus.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(cacheStatus)) {
+                    document.body.removeChild(cacheStatus);
+                }
+            }, 300);
+        }
+    }, 3000);
+}
+
+// Add refresh button functionality
+function addRefreshButton() {
+    if (!document.getElementById('refreshButton')) {
+        const refreshButton = document.createElement('button');
+        refreshButton.id = 'refreshButton';
+        refreshButton.textContent = '🔄 Refresh Data';
+        refreshButton.style.cssText = `
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #FF9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+        `;
+        
+        refreshButton.onclick = () => {
+            if (currentUsername) {
+                loadUserData(currentUsername, true);
+            }
+        };
+        
+        document.body.appendChild(refreshButton);
+    }
+}
+
+// Add keyboard shortcut for refresh (Ctrl+R or Cmd+R)
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r' && !e.shiftKey) {
+        e.preventDefault();
+        if (currentUsername) {
+            loadUserData(currentUsername, true);
+        }
+    }
+});
+
+// Initialize refresh button when page loads
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(addRefreshButton, 1000); // Add after initial load
+});
 
