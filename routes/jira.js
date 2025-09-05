@@ -45,6 +45,13 @@ router.get('/users/search', async (req, res) => {
     }
 });
 
+// Get configuration
+router.get('/config', (req, res) => {
+    res.json({ 
+        jiraBaseUrl: process.env.JIRA_BASE_URL || null
+    });
+});
+
 // Health check endpoint
 router.get('/health', (req, res) => {
     res.json({ 

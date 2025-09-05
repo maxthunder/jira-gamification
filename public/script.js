@@ -1,4 +1,19 @@
 let currentUsername = '';
+let jiraBaseUrl = null;
+
+// Fetch JIRA configuration on page load
+async function fetchConfig() {
+    try {
+        const response = await fetch('/api/jira/config');
+        const config = await response.json();
+        jiraBaseUrl = config.jiraBaseUrl;
+    } catch (error) {
+        console.error('Failed to fetch config:', error);
+    }
+}
+
+// Initialize config on page load
+window.addEventListener('DOMContentLoaded', fetchConfig);
 
 async function searchUser() {
     const username = document.getElementById('usernameInput').value.trim();
@@ -96,8 +111,12 @@ function displayTickets(containerId, tickets) {
         const createdDate = new Date(ticket.created).toLocaleDateString();
         const updatedDate = new Date(ticket.updated).toLocaleDateString();
 
+        const ticketKeyHtml = jiraBaseUrl 
+            ? `<div class="ticket-key"><a href="${jiraBaseUrl.replace(/\/$/, '')}/browse/${ticket.key}" target="_blank" style="color: inherit; text-decoration: none; hover: text-decoration: underline;">${ticket.key}</a></div>`
+            : `<div class="ticket-key">${ticket.key}</div>`;
+        
         card.innerHTML = `
-            <div class="ticket-key">${ticket.key}</div>
+            ${ticketKeyHtml}
             <div class="ticket-summary">${ticket.summary}</div>
             <div class="ticket-meta">
                 <span class="ticket-badge status">${ticket.status}</span>
