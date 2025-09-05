@@ -1,3 +1,22 @@
+/*
+ * NEXTWORLD CONFIDENTIAL
+ *
+ * Nextworld
+ * All Rights Reserved.
+ *
+ * NOTICE:  All information contained herein is, and remains
+ * the property of Nextworld and its suppliers,
+ * if any.  The intellectual and technical concepts contained
+ * herein are proprietary to Nextworld
+ * and its suppliers and may be covered by U.S. and Foreign Patents,
+ * patents in process, and are protected by trade secret or copyright law.
+ * Dissemination of this information or reproduction of this material
+ * is strictly forbidden unless prior written permission is obtained
+ * from Nextworld.
+ *
+ * Copyright 2017 (c) Nextworld - All rights reserved.
+ */
+
 * {
     margin: 0;
     padding: 0;
@@ -25,7 +44,7 @@ header {
 header h1 {
     font-size: 2.5em;
     margin-bottom: 10px;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .subtitle {
@@ -33,6 +52,30 @@ header h1 {
     opacity: 0.9;
 }
 
+.nav-buttons {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.btn-home {
+    display: inline-block;
+    background: white;
+    color: #5a0b71;
+    padding: 12px 24px;
+    border-radius: 25px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.btn-home:hover {
+    background: #3197e0;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(49, 151, 224, 0.3);
+}
 
 .loading {
     text-align: center;
@@ -59,7 +102,7 @@ header h1 {
     border-radius: 15px;
     padding: 30px;
     margin-bottom: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 .section-title {
@@ -178,7 +221,7 @@ header h1 {
     background: white;
     border-radius: 15px;
     padding: 30px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
 }
 
 .tickets-section {
@@ -206,12 +249,12 @@ header h1 {
 
 .ticket-card:hover {
     transform: translateY(-3px);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
 }
 
 .ticket-key {
     font-weight: bold;
-    color: #3197e0;
+    color: blue;
     font-size: 14px;
     margin-bottom: 8px;
 }
