@@ -19,10 +19,29 @@
 
 let githubOrg = null;
 let githubUsername = null;
+let currentUsername = null;
+
+// Detect hard reload (similar to Jira dashboard)
+function isHardReload() {
+    const navigation = performance.getEntriesByType('navigation')[0];
+    if (!navigation) return false;
+    
+    const isReload = navigation.type === 'reload';
+    const hasNoCacheHeader = document.cookie.includes('no-cache') || 
+                            window.location.search.includes('no-cache');
+    
+    return isReload && (hasNoCacheHeader || navigation.loadEventEnd - navigation.loadEventStart < 100);
+}
 
 // Fetch configuration and auto-load user data on page load
 async function initializeDashboard() {
     try {
+        // Clear cache on hard reload
+        if (isHardReload()) {
+            console.log('Hard reload detected, clearing GitHub client cache');
+            window.clientCache.clear();
+        }
+
         // Fetch configuration
         const configResponse = await fetch('/api/github/config');
         const config = await configResponse.json();
@@ -46,13 +65,36 @@ async function initializeDashboard() {
 // Initialize dashboard on page load
 window.addEventListener('DOMContentLoaded', initializeDashboard);
 
-async function loadUserData(username) {
+async function loadUserData(username, forceRefresh = false) {
+    currentUsername = username;
     hideError();
-    showLoading(true);
     hideResults();
 
+    const cacheKey = window.clientCache.generateKey('github', 'user_data', username);
+    
+    // Try to get cached data first
+    if (!forceRefresh) {
+        const cachedData = window.clientCache.get(cacheKey);
+        if (cachedData) {
+            console.log('Using cached GitHub data for user:', username);
+            displayResults(cachedData);
+            calculateAchievements(cachedData.stats);
+            document.querySelector('.section-title').textContent = `Developer Statistics - ${username}`;
+            showCacheInfo(cacheKey, true);
+            return;
+        }
+    }
+
+    // Show loading and fetch fresh data
+    showLoading(true);
+    showCacheInfo(cacheKey, false);
+
     try {
-        const response = await fetch(`/api/github/user/${encodeURIComponent(username)}/data`);
+        const url = forceRefresh ? 
+            `/api/github/user/${encodeURIComponent(username)}/data?force=1` :
+            `/api/github/user/${encodeURIComponent(username)}/data`;
+
+        const response = await fetch(url);
 
         if (!response.ok) {
             const error = await response.json();
@@ -60,11 +102,17 @@ async function loadUserData(username) {
         }
 
         const data = await response.json();
+        
+        // Cache the fresh data (longer TTL for GitHub since it changes less frequently)
+        window.clientCache.set(cacheKey, data, 10 * 60 * 1000); // 10 minutes
+        
         displayResults(data);
         calculateAchievements(data.stats);
 
         // Update page title with username
         document.querySelector('.section-title').textContent = `Developer Statistics - ${username}`;
+        
+        console.log('Fetched and cached fresh GitHub data for user:', username);
     } catch (error) {
         showError(`Error fetching GitHub data: ${error.message}`);
     } finally {
@@ -335,3 +383,128 @@ function hideResults() {
     document.getElementById('userStats').classList.add('hidden');
     document.getElementById('contentContainer').classList.add('hidden');
 }
+
+// Cache management functions (same as Jira dashboard)
+function showCacheInfo(cacheKey, fromCache) {
+    let cacheStatus = document.getElementById('cacheStatus');
+    if (!cacheStatus) {
+        cacheStatus = document.createElement('div');
+        cacheStatus.id = 'cacheStatus';
+        cacheStatus.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            background: ${fromCache ? '#4CAF50' : '#2196F3'};
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            opacity: 0.8;
+        `;
+        document.body.appendChild(cacheStatus);
+    }
+    
+    if (fromCache) {
+        const cacheInfo = window.clientCache.getCacheInfo(cacheKey);
+        const age = cacheInfo ? Math.round(cacheInfo.age / 1000) : 0;
+        cacheStatus.textContent = `📦 Cached (${age}s ago)`;
+        cacheStatus.style.background = '#4CAF50';
+    } else {
+        cacheStatus.textContent = '🔄 Fetching GitHub data...';
+        cacheStatus.style.background = '#2196F3';
+        
+        setTimeout(() => {
+            if (cacheStatus.textContent.includes('Fetching')) {
+                cacheStatus.textContent = '✅ Fresh data loaded';
+                cacheStatus.style.background = '#4CAF50';
+            }
+        }, 1000);
+    }
+    
+    setTimeout(() => {
+        if (cacheStatus && document.body.contains(cacheStatus)) {
+            cacheStatus.style.opacity = '0';
+            setTimeout(() => {
+                if (document.body.contains(cacheStatus)) {
+                    document.body.removeChild(cacheStatus);
+                }
+            }, 300);
+        }
+    }, 3000);
+}
+
+function addRefreshButton() {
+    if (!document.getElementById('refreshButton')) {
+        const refreshButton = document.createElement('button');
+        refreshButton.id = 'refreshButton';
+        refreshButton.textContent = '🔄 Refresh';
+        refreshButton.style.cssText = `
+            position: fixed;
+            top: 60px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #FF9800;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+        `;
+        
+        refreshButton.onclick = () => {
+            if (currentUsername) {
+                loadUserData(currentUsername, false);
+            }
+        };
+        
+        document.body.appendChild(refreshButton);
+    }
+    
+    if (!document.getElementById('forceRefreshButton')) {
+        const forceRefreshButton = document.createElement('button');
+        forceRefreshButton.id = 'forceRefreshButton';
+        forceRefreshButton.textContent = '⚡ Force Refresh';
+        forceRefreshButton.style.cssText = `
+            position: fixed;
+            top: 100px;
+            right: 10px;
+            padding: 8px 12px;
+            background: #F44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 1000;
+        `;
+        
+        forceRefreshButton.onclick = () => {
+            if (currentUsername) {
+                loadUserData(currentUsername, true);
+            }
+        };
+        
+        document.body.appendChild(forceRefreshButton);
+    }
+}
+
+// Add keyboard shortcuts for refresh
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+        e.preventDefault();
+        if (currentUsername) {
+            if (e.shiftKey) {
+                loadUserData(currentUsername, true);
+            } else {
+                loadUserData(currentUsername, false);
+            }
+        }
+    }
+});
+
+// Initialize refresh button when page loads
+window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(addRefreshButton, 1000);
+});

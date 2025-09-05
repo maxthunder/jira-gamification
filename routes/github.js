@@ -20,11 +20,13 @@
 const express = require('express');
 const router = express.Router();
 const githubService = require('../services/githubService');
+const cacheService = require('../services/cacheService');
 
 // Get GitHub data for a specific user
 router.get('/user/:username/data', async (req, res) => {
     try {
         const {username} = req.params;
+        const { nocache, force } = req.query;
 
         if (!username) {
             return res.status(400).json({
@@ -33,7 +35,16 @@ router.get('/user/:username/data', async (req, res) => {
             });
         }
 
-        const data = await githubService.getUserData(username);
+        // Check if cache should be bypassed
+        const useCache = !nocache && !force;
+        
+        // If force is specified, clear the cache for this user first
+        if (force) {
+            const cacheKey = cacheService.generateKey('github', 'user_data', username);
+            cacheService.delete(cacheKey);
+        }
+
+        const data = await githubService.getUserData(username, useCache);
         res.json(data);
     } catch (error) {
         console.error('Error in /user/:username/data:', error);
@@ -47,7 +58,8 @@ router.get('/user/:username/data', async (req, res) => {
 // Get organization repositories
 router.get('/repos', async (req, res) => {
     try {
-        const repos = await githubService.getOrganizationRepos();
+        const { nocache } = req.query;
+        const repos = await githubService.getOrganizationRepos(!nocache);
         res.json(repos);
     } catch (error) {
         console.error('Error in /repos:', error);
@@ -63,6 +75,15 @@ router.get('/config', (req, res) => {
     res.json({
         githubOrg: process.env.GITHUB_ORG || 'nextworld',
         githubUsername: process.env.GITHUB_USERNAME || null
+    });
+});
+
+// Clear cache endpoint
+router.post('/cache/clear', (req, res) => {
+    cacheService.clear();
+    res.json({ 
+        success: true, 
+        message: 'GitHub cache cleared successfully' 
     });
 });
 

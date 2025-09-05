@@ -1,4 +1,5 @@
 const axios = require('axios');
+const cacheService = require('./cacheService');
 
 class GitHubService {
     constructor() {
@@ -21,23 +22,55 @@ class GitHubService {
         });
     }
 
-    async getUserData(username) {
+    async getUserData(username, useCache = true) {
+        const cacheKey = cacheService.generateKey('github', 'user_data', username);
+        
+        // Check cache first
+        if (useCache) {
+            const cachedData = cacheService.get(cacheKey);
+            if (cachedData) {
+                console.log(`Cache hit for GitHub user data: ${username}`);
+                return cachedData;
+            }
+        }
+
         try {
-            // Get user's pull requests from organization repositories
-            const pullRequests = await this.getUserPullRequests(username);
+            console.log(`Fetching fresh GitHub data for user: ${username}`);
             
-            // Get user's review activities
-            const reviews = await this.getUserReviews(username);
+            // Run all API calls in parallel for better performance
+            const [pullRequests, reviews, commits] = await Promise.allSettled([
+                this.getUserPullRequests(username),
+                this.getUserReviews(username),
+                this.getUserCommits(username)
+            ]);
+
+            // Extract results, using empty arrays for failed requests
+            const prs = pullRequests.status === 'fulfilled' ? pullRequests.value : [];
+            const reviewsData = reviews.status === 'fulfilled' ? reviews.value : [];
+            const commitsData = commits.status === 'fulfilled' ? commits.value : [];
             
-            // Get user's commits
-            const commits = await this.getUserCommits(username);
+            // Log any failures but don't fail entirely
+            if (pullRequests.status === 'rejected') {
+                console.warn('Failed to fetch pull requests:', pullRequests.reason.message);
+            }
+            if (reviews.status === 'rejected') {
+                console.warn('Failed to fetch reviews:', reviews.reason.message);
+            }
+            if (commits.status === 'rejected') {
+                console.warn('Failed to fetch commits:', commits.reason.message);
+            }
             
-            return {
-                pullRequests: this.formatPullRequests(pullRequests),
-                reviews: this.formatReviews(reviews),
-                commits: this.formatCommits(commits),
-                stats: this.calculateStats(pullRequests, reviews, commits)
+            const result = {
+                pullRequests: this.formatPullRequests(prs),
+                reviews: this.formatReviews(reviewsData),
+                commits: this.formatCommits(commitsData),
+                stats: this.calculateStats(prs, reviewsData, commitsData)
             };
+
+            // Cache the result (longer TTL for GitHub data since it changes less frequently)
+            cacheService.set(cacheKey, result, 10 * 60 * 1000); // 10 minutes
+            
+            return result;
         } catch (error) {
             console.error('Error fetching GitHub data:', error.response?.data || error.message);
             throw new Error(`Failed to fetch GitHub data: ${error.response?.data?.message || error.message}`);
@@ -70,22 +103,33 @@ class GitHubService {
                     q: `type:pr involves:${username} org:${this.organization}`,
                     sort: 'updated',
                     order: 'desc',
-                    per_page: 50
+                    per_page: 30 // Reduced to limit API calls
                 }
             });
             
+            const prs = response.data.items || [];
             const reviews = [];
-            for (const pr of response.data.items || []) {
+            
+            // Use Promise.allSettled to fetch reviews in parallel and handle failures gracefully
+            const reviewPromises = prs.slice(0, 15).map(async pr => { // Further limit to reduce API calls
                 try {
-                    // Get review details for each PR
                     const reviewResponse = await this.client.get(`/repos/${pr.repository_url.split('/').slice(-2).join('/')}/pulls/${pr.number}/reviews`);
                     const userReviews = reviewResponse.data.filter(review => review.user.login === username);
-                    reviews.push(...userReviews.map(review => ({ ...review, pr })));
+                    return userReviews.map(review => ({ ...review, pr }));
                 } catch (reviewError) {
-                    // Continue if we can't get review details for a specific PR
-                    continue;
+                    console.warn(`Failed to fetch reviews for PR ${pr.number}:`, reviewError.message);
+                    return [];
                 }
-            }
+            });
+            
+            const reviewResults = await Promise.allSettled(reviewPromises);
+            
+            // Collect all successful results
+            reviewResults.forEach(result => {
+                if (result.status === 'fulfilled') {
+                    reviews.push(...result.value);
+                }
+            });
             
             return reviews;
         } catch (error) {
@@ -96,35 +140,59 @@ class GitHubService {
 
     async getUserCommits(username) {
         try {
-            // Get organization repositories
-            const reposResponse = await this.client.get(`/orgs/${this.organization}/repos`, {
-                params: {
-                    type: 'all',
-                    per_page: 100
-                }
-            });
+            // Get organization repositories (cached for better performance)
+            const reposCacheKey = cacheService.generateKey('github', 'org_repos', this.organization);
+            let reposData = cacheService.get(reposCacheKey);
+            
+            if (!reposData) {
+                const reposResponse = await this.client.get(`/orgs/${this.organization}/repos`, {
+                    params: {
+                        type: 'all',
+                        sort: 'updated',
+                        per_page: 50 // Reduced from 100
+                    }
+                });
+                reposData = reposResponse.data;
+                // Cache repos for 15 minutes since they don't change often
+                cacheService.set(reposCacheKey, reposData, 15 * 60 * 1000);
+            }
             
             const commits = [];
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
             
-            // Get commits from each repository (limited to recent commits to avoid rate limiting)
-            for (const repo of reposResponse.data.slice(0, 20)) { // Limit to first 20 repos to avoid rate limiting
+            // Limit to top 10 most recently updated repos for better performance
+            const topRepos = reposData.slice(0, 10);
+            
+            // Use Promise.allSettled for parallel requests
+            const commitPromises = topRepos.map(async repo => {
                 try {
                     const commitResponse = await this.client.get(`/repos/${repo.full_name}/commits`, {
                         params: {
                             author: username,
                             since: thirtyDaysAgo.toISOString(),
-                            per_page: 50
+                            per_page: 30 // Reduced from 50
                         }
                     });
                     
-                    commits.push(...commitResponse.data.map(commit => ({ ...commit, repository: repo })));
+                    return commitResponse.data.map(commit => ({ ...commit, repository: repo }));
                 } catch (commitError) {
-                    // Continue if we can't get commits for a specific repo
-                    continue;
+                    console.warn(`Failed to fetch commits for repo ${repo.full_name}:`, commitError.message);
+                    return [];
                 }
-            }
+            });
+            
+            const commitResults = await Promise.allSettled(commitPromises);
+            
+            // Collect all successful results
+            commitResults.forEach(result => {
+                if (result.status === 'fulfilled') {
+                    commits.push(...result.value);
+                }
+            });
+            
+            // Sort by date (most recent first)
+            commits.sort((a, b) => new Date(b.commit.author.date) - new Date(a.commit.author.date));
             
             return commits;
         } catch (error) {
@@ -264,8 +332,21 @@ class GitHubService {
         };
     }
 
-    async getOrganizationRepos() {
+    async getOrganizationRepos(useCache = true) {
+        const cacheKey = cacheService.generateKey('github', 'org_repos_formatted', this.organization);
+        
+        // Check cache first
+        if (useCache) {
+            const cachedData = cacheService.get(cacheKey);
+            if (cachedData) {
+                console.log(`Cache hit for GitHub org repos: ${this.organization}`);
+                return cachedData;
+            }
+        }
+
         try {
+            console.log(`Fetching fresh GitHub org repos: ${this.organization}`);
+            
             const response = await this.client.get(`/orgs/${this.organization}/repos`, {
                 params: {
                     type: 'all',
@@ -274,7 +355,7 @@ class GitHubService {
                 }
             });
             
-            return response.data.map(repo => ({
+            const result = response.data.map(repo => ({
                 name: repo.name,
                 fullName: repo.full_name,
                 description: repo.description,
@@ -284,6 +365,11 @@ class GitHubService {
                 updated: repo.updated_at,
                 url: repo.html_url
             }));
+
+            // Cache for 15 minutes
+            cacheService.set(cacheKey, result, 15 * 60 * 1000);
+            
+            return result;
         } catch (error) {
             console.error('Error fetching repositories:', error.response?.data || error.message);
             throw new Error(`Failed to fetch repositories: ${error.response?.data?.message || error.message}`);
