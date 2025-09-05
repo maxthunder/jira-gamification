@@ -1,29 +1,33 @@
-let currentUsername = '';
 let jiraBaseUrl = null;
+let defaultUser = null;
 
-// Fetch JIRA configuration on page load
-async function fetchConfig() {
+// Fetch configuration and auto-load user data on page load
+async function initializeDashboard() {
     try {
-        const response = await fetch('/api/jira/config');
-        const config = await response.json();
+        // Fetch configuration
+        const configResponse = await fetch('/api/jira/config');
+        const config = await configResponse.json();
         jiraBaseUrl = config.jiraBaseUrl;
+        defaultUser = config.defaultUser;
+        
+        // Auto-load default user data
+        if (defaultUser) {
+            await loadUserData(defaultUser);
+        } else {
+            showError('No default user configured. Please set DEFAULT_USER in .env file.');
+            showLoading(false);
+        }
     } catch (error) {
-        console.error('Failed to fetch config:', error);
+        console.error('Failed to initialize dashboard:', error);
+        showError('Failed to initialize dashboard. Please check your configuration.');
+        showLoading(false);
     }
 }
 
-// Initialize config on page load
-window.addEventListener('DOMContentLoaded', fetchConfig);
+// Initialize dashboard on page load
+window.addEventListener('DOMContentLoaded', initializeDashboard);
 
-async function searchUser() {
-    const username = document.getElementById('usernameInput').value.trim();
-    
-    if (!username) {
-        showError('Please enter a username');
-        return;
-    }
-
-    currentUsername = username;
+async function loadUserData(username) {
     hideError();
     showLoading(true);
     hideResults();
@@ -39,6 +43,9 @@ async function searchUser() {
         const data = await response.json();
         displayResults(data);
         calculateAchievements(data.stats);
+        
+        // Update page title with username
+        document.querySelector('.section-title').textContent = `User Statistics - ${username}`;
     } catch (error) {
         showError(error.message);
     } finally {
@@ -186,67 +193,3 @@ function hideResults() {
     document.getElementById('ticketsContainer').classList.add('hidden');
 }
 
-// Handle Enter key in search input
-document.getElementById('usernameInput').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        searchUser();
-    }
-});
-
-// Auto-search functionality (optional)
-let searchTimeout;
-document.getElementById('usernameInput').addEventListener('input', (e) => {
-    clearTimeout(searchTimeout);
-    const value = e.target.value.trim();
-    
-    if (value.length >= 3) {
-        searchTimeout = setTimeout(() => {
-            searchUserSuggestions(value);
-        }, 500);
-    } else {
-        document.getElementById('searchSuggestions').style.display = 'none';
-    }
-});
-
-async function searchUserSuggestions(query) {
-    try {
-        const response = await fetch(`/api/jira/users/search?q=${encodeURIComponent(query)}`);
-        if (response.ok) {
-            const users = await response.json();
-            displaySuggestions(users);
-        }
-    } catch (error) {
-        console.error('Error searching users:', error);
-    }
-}
-
-function displaySuggestions(users) {
-    const container = document.getElementById('searchSuggestions');
-    
-    if (users.length === 0) {
-        container.style.display = 'none';
-        return;
-    }
-
-    container.innerHTML = '';
-    users.forEach(user => {
-        const item = document.createElement('div');
-        item.className = 'suggestion-item';
-        item.textContent = `${user.displayName} (${user.name})`;
-        item.onclick = () => {
-            document.getElementById('usernameInput').value = user.name;
-            container.style.display = 'none';
-            searchUser();
-        };
-        container.appendChild(item);
-    });
-    
-    container.style.display = 'block';
-}
-
-// Hide suggestions when clicking outside
-document.addEventListener('click', (e) => {
-    if (!e.target.closest('.search-section')) {
-        document.getElementById('searchSuggestions').style.display = 'none';
-    }
-});

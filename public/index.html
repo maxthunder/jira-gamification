@@ -13,15 +13,7 @@
             <p class="subtitle">Track your Jira achievements and progress</p>
         </header>
 
-        <div class="search-section">
-            <div class="search-container">
-                <input type="text" id="usernameInput" placeholder="Enter Jira username (e.g., john.doe)" />
-                <button id="searchBtn" onclick="searchUser()">Search User</button>
-            </div>
-            <div id="searchSuggestions" class="suggestions"></div>
-        </div>
-
-        <div id="loadingIndicator" class="loading hidden">Loading...</div>
+        <div id="loadingIndicator" class="loading">Loading user data...</div>
         <div id="errorMessage" class="error-message hidden"></div>
 
         <div id="userStats" class="stats-container hidden">

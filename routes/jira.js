@@ -48,7 +48,8 @@ router.get('/users/search', async (req, res) => {
 // Get configuration
 router.get('/config', (req, res) => {
     res.json({ 
-        jiraBaseUrl: process.env.JIRA_BASE_URL || null
+        jiraBaseUrl: process.env.JIRA_BASE_URL || null,
+        defaultUser: process.env.DEFAULT_USER || null
     });
 });
 
